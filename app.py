@@ -31,3 +31,4 @@ if st.button("Get Forecast"):
         )
     else:
         st.write("Error retrieving forecast data or no data found.")
+        st.write(response.text)
