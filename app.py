@@ -1,8 +1,10 @@
 import streamlit as st
 import requests
 import pandas as pd
+from io import StringIO
 
-ngrok_url = st.text_input("Enter the ngrok public URL for the Flask app", "https://4da0-35-196-87-17.ngrok-free.app/")
+# Input ngrok URL from the user
+ngrok_url = st.text_input("Enter the ngrok public URL for the Flask app", "http://your-ngrok-url")
 
 st.title("Forecast Dashboard")
 
@@ -18,7 +20,7 @@ if st.button("Get Forecast"):
     
     if response.status_code == 200:
         forecast_data = response.text
-        df_forecast = pd.read_csv(pd.compat.StringIO(forecast_data))
+        df_forecast = pd.read_csv(StringIO(forecast_data))
         st.write(f"{forecast_type} Forecast for {item_id}")
         st.dataframe(df_forecast)
         st.download_button(
@@ -28,4 +30,4 @@ if st.button("Get Forecast"):
             mime='text/csv',
         )
     else:
-        st.write("Error retrieving forecast data")
+        st.write("Error retrieving forecast data or no data found.")
