@@ -63,5 +63,6 @@ if st.button("Get Forecast"):
             mime='text/csv',
         )
 
-if __name__ == "__main__":
-    st.run()
+# This part is not needed for Streamlit; you run the app using the command line
+# if __name__ == "__main__":
+#     st.run()
