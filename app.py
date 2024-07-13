@@ -1,47 +1,68 @@
-import streamlit as st
+import boto3
 import pandas as pd
-from pyngrok import ngrok
+import streamlit as st
 
-# Set your ngrok authentication token
-ngrok.set_auth_token("2i2b7uISHbU7rD56WmdQwTwmo6u_6jnKEvV6HAbk7kNHLCjUB")
+# Initialize a session using Amazon Forecast
+session = boto3.Session(
+    aws_access_key_id='AKIA47CRXULRB2H562MZ',
+    aws_secret_access_key='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',
+    region_name='ap-south-1'
+)
 
-# Function to filter out weekends
+# Create a Forecast client
+forecast = session.client('forecast')
+forecast_query = session.client('forecastquery')
+
 def filter_weekends(df):
     df['Date'] = pd.to_datetime(df['Timestamp'])
     df = df[~df['Date'].dt.dayofweek.isin([5, 6])]
     df = df.drop(columns=['Date'])
     return df
 
-# Start ngrok tunnel
-public_url = ngrok.connect(8501)
-st.write(f' * ngrok tunnel "http://127.0.0.1:8501" -> "{public_url}"')
+def get_forecast(forecast_arn, item_id):
+    # Query the forecast
+    forecast_response = forecast_query.query_forecast(
+        ForecastArn=forecast_arn,
+        Filters={"item_id": item_id}
+    )
 
-# Streamlit app
+    # Extract the forecast data
+    forecast_data = forecast_response['Forecast']['Predictions']
+
+    # Check if 'p50' key exists in the predictions
+    if 'p50' in forecast_data:
+        # Convert to DataFrame
+        df_forecast = pd.DataFrame(forecast_data['p50'])
+        # Filter out weekends
+        df_forecast = filter_weekends(df_forecast)
+        return df_forecast
+    else:
+        st.write(f"No predictions found for item_id: {item_id}")
+        return pd.DataFrame()
+
+# Streamlit UI
 st.title("Forecast Dashboard")
 
-# Navigation
-pages = ["Home", "Short Term Forecast", "Long Term Forecast"]
-selection = st.sidebar.radio("Go to", pages)
+item_id = st.text_input("Enter Stock Name", "Britannia")
+forecast_type = st.selectbox("Select Forecast Type", ["Short Term", "Long Term"])
 
-if selection == "Home":
-    st.header("Home")
-    st.markdown("""
-        <ul>
-            <li><a href="#" onclick="document.querySelector('input[value=Short\\ Term\\ Forecast]').click()">Short Term Forecast</a></li>
-            <li><a href="#" onclick="document.querySelector('input[value=Long\\ Term\\ Forecast]').click()">Long Term Forecast</a></li>
-        </ul>
-    """, unsafe_allow_html=True)
+if st.button("Get Forecast"):
+    if forecast_type == "Short Term":
+        forecast_arn = 'arn:aws:forecast:ap-south-1:891377132258:forecast/FP2Forecast'
+    else:
+        forecast_arn = 'arn:aws:forecast:ap-south-1:891377132258:forecast/FP2Forecast2'
+    
+    df_forecast = get_forecast(forecast_arn, item_id)
+    if not df_forecast.empty:
+        st.write(f"{forecast_type} Forecast for {item_id}")
+        st.dataframe(df_forecast)
+        st.download_button(
+            label="Download data as CSV",
+            data=df_forecast.to_csv().encode('utf-8'),
+            file_name=f'{forecast_type}_forecast_{item_id}.csv',
+            mime='text/csv',
+        )
 
-elif selection == "Short Term Forecast":
-    st.header("Short Term Forecast")
-    df = pd.read_csv('Short_term_forecast_results.csv')
-    st.dataframe(df)
-
-elif selection == "Long Term Forecast":
-    st.header("Long Term Forecast")
-    df = pd.read_csv('Long_term_forecast_results.csv')
-    st.dataframe(df)
-
-# Run the Streamlit app
-if __name__ == '__main__':
-    st.write("Running Streamlit app...")
+# This part is not needed for Streamlit; you run the app using the command line
+# if __name__ == "__main__":
+#     st.run()
